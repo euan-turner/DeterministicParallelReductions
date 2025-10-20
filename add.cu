@@ -1,5 +1,6 @@
 #include <iostream>
 #include <random>
+#include <optional>
 #include <limits>
 #include <iomanip>
 
@@ -232,10 +233,17 @@ void reduce_rows_single_determ(float *X, float *out) {
   out[row] = chunk_sums[0];
 }
 
+std::mt19937 make_rng(std::optional<unsigned int> seed = std::nullopt) {
+  if (seed) return std::mt19937(*seed);
+  else {
+    std::random_device rd;
+    return std::mt19937(rd());
+  }
+}
+
 // Initialize matrix X (M x N) with samples from a uniform distribution
-void init_matrix_std_normal(float *X, int M, int N) {
-  std::random_device rd;
-  std::mt19937 gen(rd());
+void init_matrix_std_normal(float *X, int M, int N, std::optional<unsigned int> seed = std::nullopt) {
+  std::mt19937 gen = make_rng(seed);
   // Use a much smaller symmetric range to avoid overflow when summing many
   // elements, while still producing large variance to highlight
   // non-associativity. Adjust as needed.
@@ -259,14 +267,24 @@ void print_results(const char *label, float *out, int M) {
   std::cout << std::endl;
 }
 
-int main(void) {
+int main(int argc, char* argv[]) {
+  std::optional<unsigned int> seed;
+
+  if (argc > 1) {
+    try {
+      seed = std::stoul(argv[1]);
+    } catch (const std::exception& e) {
+      std::cerr << "Invalid seed: " << argv[1] << '\n';
+      return 1;
+    }
+  }
   constexpr int M = 4;
   constexpr int N = 16384;
 
   // allocate matrix X and initialize on host
   float *X = nullptr;
   cudaMallocManaged(&X, M * N * sizeof(float));
-  init_matrix_std_normal(X, M, N);
+  init_matrix_std_normal(X, M, N, seed);
 
   cudaEvent_t start, stop;
   float ms;
