@@ -2,6 +2,8 @@
 
 How to make different parallelisation schemes along the reduction axis deterministic AND efficient?
 
+The highest level of parallelism determines the reduction order, and all coarser grains match that reduction order, summing sub-chunks of their assigned chunk at a time. Chunk sums are then combined in a binary tree, so that single threads in coarser parallelism strategies can combine their chunks together.
+
 TODO:
 - [ ] Test to assert that all `_determ` kernels equal `par_256` within floating-point tolerance
 - [ ] Add performance profiling & plots comparing deterministic vs non-deterministic versions
