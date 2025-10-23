@@ -286,11 +286,6 @@ int main(int argc, char* argv[]) {
   cudaMallocManaged(&X, M * N * sizeof(float));
   init_matrix_std_normal(X, M, N, seed);
 
-  cudaEvent_t start, stop;
-  float ms;
-  cudaEventCreate(&start);
-  cudaEventCreate(&stop);
-
   // single reusable output buffer for all kernels
   float *out = nullptr;
   cudaMallocManaged(&out, M * sizeof(float));
@@ -302,89 +297,72 @@ int main(int argc, char* argv[]) {
     for (int i = 0; i < M; ++i) out[i] = 0.0f;
   };
 
-  // SINGLE thread, FORWARD
-  reset_out();
-  cudaEventRecord(start);
-  reduce_rows_single_for<M, N><<<1, M>>>(X, out);
-  cudaEventRecord(stop);
-  cudaEventSynchronize(stop);
-  cudaEventElapsedTime(&ms, start, stop);
-  print_results("SINGLE thread, FORWARD", out, M);
-  std::cout << "Kernel execution time: " << ms << "ms" << std::endl;
+  // Run each kernel multiple times (no event timing)
+  const int ITERS = 100;
 
-  // SINGLE thread, BACKWARD
-  reset_out();
-  cudaEventRecord(start);
-  reduce_rows_single_back<M, N><<<1, M>>>(X, out);
-  cudaEventRecord(stop);
-  cudaEventSynchronize(stop);
-  cudaEventElapsedTime(&ms, start, stop);
-  print_results("SINGLE thread, BACKWARD", out, M);
-  std::cout << "Kernel execution time: " << ms << "ms" << std::endl;
+  for (int it = 0; it < ITERS; ++it) {
+    reset_out();
+    reduce_rows_single_for<M, N><<<1, M>>>(X, out);
+    cudaDeviceSynchronize();
+    std::cout << "ITER " << it << " ";
+    print_results("SINGLE thread, FORWARD", out, M);
+  }
 
-  // PAR 16 threads/row
-  reset_out();
-  cudaEventRecord(start);
-  reduce_rows_par_16<M, N><<<M, 16>>>(X, out);
-  cudaEventRecord(stop);
-  cudaEventSynchronize(stop);
-  cudaEventElapsedTime(&ms, start, stop);
-  print_results("PAR 16 threads/row", out, M);
-  std::cout << "Kernel execution time: " << ms << "ms" << std::endl;
+  for (int it = 0; it < ITERS; ++it) {
+    reset_out();
+    reduce_rows_single_back<M, N><<<1, M>>>(X, out);
+    cudaDeviceSynchronize();
+    std::cout << "ITER " << it << " ";
+    print_results("SINGLE thread, BACKWARD", out, M);
+  }
 
-  // PAR 64 threads/row
-  reset_out();
-  cudaEventRecord(start);
-  reduce_rows_par_64<M, N><<<M, 64>>>(X, out);
-  cudaEventRecord(stop);
-  cudaEventSynchronize(stop);
-  cudaEventElapsedTime(&ms, start, stop);
-  print_results("PAR 64 threads/row", out, M);
-  std::cout << "Kernel execution time: " << ms << "ms" << std::endl;
+  for (int it = 0; it < ITERS; ++it) {
+    reset_out();
+    reduce_rows_par_16<M, N><<<M, 16>>>(X, out);
+    cudaDeviceSynchronize();
+    std::cout << "ITER " << it << " ";
+    print_results("PAR 16 threads/row", out, M);
+  }
 
-  // PAR 256 threads/row
-  reset_out();
-  cudaEventRecord(start);
-  reduce_rows_par_256<M, N><<<M, 256>>>(X, out);
-  cudaEventRecord(stop);
-  cudaEventSynchronize(stop);
-  cudaEventElapsedTime(&ms, start, stop);
-  print_results("PAR 256 threads/row", out, M);
-  std::cout << "Kernel execution time: " << ms << "ms" << std::endl;
+  for (int it = 0; it < ITERS; ++it) {
+    reset_out();
+    reduce_rows_par_64<M, N><<<M, 64>>>(X, out);
+    cudaDeviceSynchronize();
+    std::cout << "ITER " << it << " ";
+    print_results("PAR 64 threads/row", out, M);
+  }
 
-  // SINGLE thread, DETERM
-  reset_out();
-  cudaEventRecord(start);
-  reduce_rows_single_determ<M, N><<<1, M>>>(X, out);
-  cudaEventRecord(stop);
-  cudaEventSynchronize(stop);
-  cudaEventElapsedTime(&ms, start, stop);
-  print_results("SINGLE thread, DETERM", out, M);
-  std::cout << "Kernel execution time: " << ms << "ms" << std::endl;
+  for (int it = 0; it < ITERS; ++it) {
+    reset_out();
+    reduce_rows_par_256<M, N><<<M, 256>>>(X, out);
+    cudaDeviceSynchronize();
+    std::cout << "ITER " << it << " ";
+    print_results("PAR 256 threads/row", out, M);
+  }
 
-  // PAR 16 threads/row, DETERM
-  reset_out();
-  cudaEventRecord(start);
-  reduce_rows_par_16_determ<M, N><<<M, 16>>>(X, out);
-  cudaEventRecord(stop);
-  cudaEventSynchronize(stop);
-  cudaEventElapsedTime(&ms, start, stop);
-  print_results("PAR 16 threads/row, DETERM", out, M);
-  std::cout << "Kernel execution time: " << ms << "ms" << std::endl;
+  for (int it = 0; it < ITERS; ++it) {
+    reset_out();
+    reduce_rows_single_determ<M, N><<<1, M>>>(X, out);
+    cudaDeviceSynchronize();
+    std::cout << "ITER " << it << " ";
+    print_results("SINGLE thread, DETERM", out, M);
+  }
 
-  // PAR 64 threads/row, DETERM
-  reset_out();
-  cudaEventRecord(start);
-  reduce_rows_par_64_determ<M, N><<<M, 64>>>(X, out);
-  cudaEventRecord(stop);
-  cudaEventSynchronize(stop);
-  cudaEventElapsedTime(&ms, start, stop);
-  print_results("PAR 64 threads/row, DETERM", out, M);
-  std::cout << "Kernel execution time: " << ms << "ms" << std::endl;
+  for (int it = 0; it < ITERS; ++it) {
+    reset_out();
+    reduce_rows_par_16_determ<M, N><<<M, 16>>>(X, out);
+    cudaDeviceSynchronize();
+    std::cout << "ITER " << it << " ";
+    print_results("PAR 16 threads/row, DETERM", out, M);
+  }
 
-  // destroy events
-  cudaEventDestroy(start);
-  cudaEventDestroy(stop);
+  for (int it = 0; it < ITERS; ++it) {
+    reset_out();
+    reduce_rows_par_64_determ<M, N><<<M, 64>>>(X, out);
+    cudaDeviceSynchronize();
+    std::cout << "ITER " << it << " ";
+    print_results("PAR 64 threads/row, DETERM", out, M);
+  }
 
   cudaFree(out);
   cudaFree(X);

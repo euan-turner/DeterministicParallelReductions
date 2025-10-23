@@ -7,20 +7,8 @@ The highest level of parallelism determines the reduction order, and all coarser
 TODO:
 - [ ] Test to assert that all `_determ` kernels equal `par_256` within floating-point tolerance
 - [ ] Add performance profiling & plots comparing deterministic vs non-deterministic versions
+- [ ] Parameterise ITER
 - [ ] Multi-block reductions
-
-
-## Results
-
-For summing the rows of a 4x16,384 matrix:
-
-SINGLE thread, FORWARD:
-2.161028e+05, -1.252314e+05, 1.451880e+05, -1.892576e+05
-Kernel execution time: 2.218578e+02ms
-
-SINGLE thread, BACKWARD:
-2.161024e+05, -1.252316e+05, 1.451878e+05, -1.892579e+05
-Kernel execution time: 3.459840e-01ms
 
 # DeterministicParallelReductions
 
@@ -46,18 +34,33 @@ make run SEED=42 # sets a seed for reproducibility
 ```
 
 
-## Profiling results
+## Profiling results (profiler summary)
 
-The table below shows the per-kernel row sums and measured kernel execution time from a recent run. The final column indicates whether the kernel's printed results exactly match the `PAR 256` baseline shown above. (Exact match is determined on the printed values; for a numeric tolerance check see the TODOs.)
+The table below shows kernel-level profiling results captured with NVIDIA Nsight (nsys). Times are total GPU time per kernel over 100 invocations and statistics reported by `nsys stats` (Total Time, Avg, Median, Min/Max, StdDev).
 
-| Kernel                                  | Row sums (4 rows)                                                                 | Time (ms)        | Matches PAR 256? |
-|----------------------------------------:|:----------------------------------------------------------------------------------|:-----------------|:-----------------|
-| SINGLE thread, FORWARD                  | 4.047263e+04, -6.032482e+04, 1.614896e+03, -3.791289e+04                         | 7.632896         | No               |
-| SINGLE thread, BACKWARD                 | 4.047259e+04, -6.032484e+04, 1.614837e+03, -3.791289e+04                         | 0.291840         | No               |
-| PAR 16 threads/row                      | 4.047253e+04, -6.032492e+04, 1.614905e+03, -3.791298e+04                         | 0.126784         | No               |
-| PAR 64 threads/row                      | 4.047258e+04, -6.032489e+04, 1.614831e+03, -3.791297e+04                         | 0.465920         | No               |
-| PAR 256 threads/row (baseline)          | 4.047258e+04, -6.032488e+04, 1.614828e+03, -3.791298e+04                         | 0.227328         | Yes              |
-| SINGLE thread, DETERM                   | 4.047258e+04, -6.032488e+04, 1.614828e+03, -3.791298e+04                         | 0.401344         | Yes              |
-| PAR 16 threads/row, DETERM              | 4.047258e+04, -6.032488e+04, 1.614832e+03, -3.791298e+04                         | 0.706560         | No               |
-| PAR 64 threads/row, DETERM              | 4.047258e+04, -6.032488e+04, 1.614828e+03, -3.791298e+04                         | 0.149408         | Yes              |
+| Time (%) | Total Time (ns) | Instances | Avg (ns)   | Med (ns)   | Min (ns) | Max (ns) | StdDev (ns) | Name |
+|---------:|---------------:|----------:|-----------:|-----------:|---------:|---------:|------------:|:-----|
+| 29.4     | 23,871,201     | 100       | 238,712.0  | 202,280.0  | 200,840  | 749,502  | 95,402.1   | void reduce_rows_single_for<(int)4, (int)16384>(float *, float *) |
+| 25.8     | 20,912,754     | 100       | 209,127.5  | 209,272.0  | 208,360  | 210,249  | 710.0      | void reduce_rows_single_back<(int)4, (int)16384>(float *, float *) |
+| 23.2     | 18,827,253     | 100       | 188,272.5  | 187,927.0  | 186,503  | 212,936  | 4,844.9    | void reduce_rows_single_determ<(int)4, (int)16384>(float *, float *) |
+| 13.4     | 10,872,435     | 100       | 108,724.4  | 108,756.5  | 108,196  | 111,652  | 502.8      | void reduce_rows_par_16_determ<(int)4, (int)16384>(float *, float *) |
+| 3.2      | 2,567,529      | 100       | 25,675.3   | 25,729.0   | 25,537   | 26,785   | 146.3      | void reduce_rows_par_16<(int)4, (int)16384>(float *, float *) |
+| 2.1      | 1,667,079      | 100       | 16,670.8   | 16,608.5   | 16,513   | 22,337   | 580.8      | void reduce_rows_par_64_determ<(int)4, (int)16384>(float *, float *) |
+| 1.8      | 1,464,762      | 100       | 14,647.6   | 14,641.0   | 14,560   | 15,265   | 85.1       | void reduce_rows_par_64<(int)4, (int)16384>(float *, float *) |
+| 1.2      | 963,570        | 100       | 9,635.7    | 9,632.0    | 9,537    | 10,080   | 76.0       | void reduce_rows_par_256<(int)4, (int)16384>(float *, float *) |
+ 
+## Representative per-kernel results
 
+Will differ with different seeds, and different hardware.
+Seed was set to 10 on NVIDIA Titan XP for these.
+
+| Kernel                              | ITER 0 result (four row sums) |
+|-------------------------------------|-------------------------------:|
+| SINGLE thread, FORWARD             | -1.756334e+05, 4.634140e+04, 9.571327e+03, -5.572992e+04 |
+| SINGLE thread, BACKWARD            | -1.756330e+05, 4.634141e+04, 9.571340e+03, -5.572999e+04 |
+| PAR 16 threads/row                 | -1.756329e+05, 4.634139e+04, 9.571355e+03, -5.572983e+04 |
+| PAR 64 threads/row                 | -1.756330e+05, 4.634137e+04, 9.571330e+03, -5.572984e+04 |
+| PAR 256 threads/row                | -1.756330e+05, 4.634142e+04, 9.571328e+03, -5.572985e+04 |
+| SINGLE thread, DETERM              | -1.756330e+05, 4.634142e+04, 9.571328e+03, -5.572985e+04 |
+| PAR 16 threads/row, DETERM         | -1.756330e+05, 4.634142e+04, 9.571332e+03, -5.572985e+04 | -> some inaccuracy here
+| PAR 64 threads/row, DETERM         | -1.756330e+05, 4.634142e+04, 9.571328e+03, -5.572985e+04 |
