@@ -62,5 +62,5 @@ Seed was set to 10 on NVIDIA Titan XP for these.
 | PAR 64 threads/row                 | -1.756330e+05, 4.634137e+04, 9.571330e+03, -5.572984e+04 |
 | PAR 256 threads/row                | -1.756330e+05, 4.634142e+04, 9.571328e+03, -5.572985e+04 |
 | SINGLE thread, DETERM              | -1.756330e+05, 4.634142e+04, 9.571328e+03, -5.572985e+04 |
-| PAR 16 threads/row, DETERM         | -1.756330e+05, 4.634142e+04, 9.571332e+03, -5.572985e+04 | -> some inaccuracy here
+| PAR 16 threads/row, DETERM         | -1.756330e+05, 4.634142e+04, 9.571328e+03, -5.572985e+04 |
 | PAR 64 threads/row, DETERM         | -1.756330e+05, 4.634142e+04, 9.571328e+03, -5.572985e+04 |

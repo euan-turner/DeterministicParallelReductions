@@ -146,6 +146,7 @@ void reduce_rows_par_64_determ(float *X, float *out) {
       chunk_sums[cidx] += X[row * N + i];
     }
   }
+
   temp[tid] = (chunk_sums[0] + chunk_sums[1]) + (chunk_sums[2] + chunk_sums[3]);
 
   __syncthreads();
@@ -183,10 +184,10 @@ void reduce_rows_par_16_determ(float *X, float *out) {
     }
   }
   // Binary reduction over the chunk sums
-  temp[tid] = ((chunk_sums[0] + chunk_sums[1]) + (chunk_sums[2] + chunk_sums[3])) +
-        ((chunk_sums[4] + chunk_sums[5]) + (chunk_sums[6] + chunk_sums[7])) +
-        ((chunk_sums[8] + chunk_sums[9]) + (chunk_sums[10] + chunk_sums[11])) +
-        ((chunk_sums[12] + chunk_sums[13]) + (chunk_sums[14] + chunk_sums[15]));
+  temp[tid] = (((chunk_sums[0] + chunk_sums[1]) + (chunk_sums[2] + chunk_sums[3])) +
+        ((chunk_sums[4] + chunk_sums[5]) + (chunk_sums[6] + chunk_sums[7]))) +
+        (((chunk_sums[8] + chunk_sums[9]) + (chunk_sums[10] + chunk_sums[11])) +
+        ((chunk_sums[12] + chunk_sums[13]) + (chunk_sums[14] + chunk_sums[15])));
   __syncthreads();
 
   // Binary tree reduction in shared memory
@@ -270,12 +271,40 @@ void print_results(const char *label, float *out, int M) {
 int main(int argc, char* argv[]) {
   std::optional<unsigned int> seed;
 
+  int ITERS = 100; // default value
   if (argc > 1) {
-    try {
-      seed = std::stoul(argv[1]);
-    } catch (const std::exception& e) {
-      std::cerr << "Invalid seed: " << argv[1] << '\n';
-      return 1;
+    for (int i = 1; i < argc; i++) {
+      std::string arg = argv[i];
+      if (arg == "-i" || arg == "--iter") {
+        if (i + 1 >= argc) {
+          std::cerr << "Missing value for iterations\n";
+          return 1;
+        }
+        try {
+          ITERS = std::stoi(argv[++i]);
+          if (ITERS <= 0) {
+            std::cerr << "Number of iterations must be positive\n";
+            return 1;
+          }
+        } catch (const std::exception& e) {
+          std::cerr << "Invalid iterations value\n";
+          return 1;
+        }
+      } else if (arg == "-s" || arg == "--seed") {
+        if (i + 1 >= argc) {
+          std::cerr << "Missing value for seed\n";
+          return 1;
+        }
+        try {
+          seed = static_cast<unsigned int>(std::stoul(argv[++i]));
+        } catch (const std::exception& e) {
+          std::cerr << "Invalid seed value\n";
+          return 1;
+        }
+      } else {
+        std::cerr << "Usage: " << argv[0] << " [-i/--iter <iterations>] [-s/--seed <seed>]\n";
+        return 1;
+      }
     }
   }
   constexpr int M = 4;
@@ -297,8 +326,6 @@ int main(int argc, char* argv[]) {
     for (int i = 0; i < M; ++i) out[i] = 0.0f;
   };
 
-  // Run each kernel multiple times (no event timing)
-  const int ITERS = 100;
 
   for (int it = 0; it < ITERS; ++it) {
     reset_out();
